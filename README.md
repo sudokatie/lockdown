@@ -104,6 +104,16 @@ npm run build
 - Jest for testing
 - HTML5 Canvas for rendering
 
+## Changelog
+
+### v0.1.1
+- Fix: Inmates now follow daily schedule (pathfind to zones, satisfy needs)
+- Fix: Nearby frustrated inmates join existing fights
+- Fix: Common room requires TV + seating per spec
+
+### v0.1.0
+- Initial release
+
 ## License
 
 MIT
