@@ -141,6 +141,35 @@ describe('Security', () => {
       const fight = checkForFight(inmates);
       expect(fight).toBeNull();
     });
+
+    it('includes nearby frustrated inmates in fight', () => {
+      const inmates: Inmate[] = [
+        createInmate('Inmate A', SecurityLevel.MIN, 30, { x: 5, y: 5 }),
+        createInmate('Inmate B', SecurityLevel.MIN, 30, { x: 6, y: 5 }),
+        createInmate('Inmate C', SecurityLevel.MIN, 30, { x: 5, y: 6 }), // Also within range
+        createInmate('Inmate D', SecurityLevel.MIN, 30, { x: 20, y: 20 }) // Far away
+      ];
+      
+      // Make first three frustrated
+      inmates[0].frustration = 100;
+      inmates[0].tolerance = 50;
+      inmates[1].frustration = 100;
+      inmates[1].tolerance = 50;
+      inmates[2].frustration = 100;
+      inmates[2].tolerance = 50;
+      inmates[3].frustration = 100;
+      inmates[3].tolerance = 50;
+      
+      const fight = checkForFight(inmates);
+      expect(fight).not.toBeNull();
+      expect(fight!.type).toBe(EventType.FIGHT);
+      // Should include 3 participants (A, B, C) but not D (too far)
+      expect(fight!.participants.length).toBe(3);
+      expect(fight!.participants).toContain(inmates[0].id);
+      expect(fight!.participants).toContain(inmates[1].id);
+      expect(fight!.participants).toContain(inmates[2].id);
+      expect(fight!.participants).not.toContain(inmates[3].id);
+    });
   });
 
   describe('startFight', () => {

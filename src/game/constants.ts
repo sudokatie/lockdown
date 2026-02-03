@@ -66,7 +66,7 @@ export const ZONE_REQUIRED_OBJECTS: Record<ZoneType, ObjectType[]> = {
   [ZoneType.YARD]: [],
   [ZoneType.SHOWER]: [ObjectType.SHOWERHEAD, ObjectType.DRAIN],
   [ZoneType.OFFICE]: [ObjectType.DESK, ObjectType.CHAIR],
-  [ZoneType.COMMON]: [ObjectType.TV]
+  [ZoneType.COMMON]: [ObjectType.TV, ObjectType.BENCH] // TV + seating per spec
 };
 
 // Needs decay rates per second

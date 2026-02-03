@@ -362,4 +362,88 @@ describe('Game', () => {
       expect(grid.length).toBe(30);
     });
   });
+
+  describe('inmate schedule behavior', () => {
+    it('inmates pathfind to scheduled zone', () => {
+      const game = createGame();
+      startGame(game);
+      
+      // Build a cell and a canteen with path between
+      // Cell at (2,2), Canteen at (5,2)
+      for (let x = 2; x <= 6; x++) {
+        setTile(game.state.grid, x, 2, TileType.FLOOR);
+      }
+      
+      // Create zones
+      game.state.zones.push({
+        id: 'cell_1',
+        type: ZoneType.CELL,
+        tiles: [{ x: 2, y: 2 }],
+        valid: true
+      });
+      game.state.zones.push({
+        id: 'canteen_1',
+        type: ZoneType.CANTEEN,
+        tiles: [{ x: 5, y: 2 }, { x: 6, y: 2 }],
+        valid: true
+      });
+      
+      // Add inmate at cell
+      const inmate = admitInmate(game, 'John', SecurityLevel.MIN, 30);
+      expect(inmate).not.toBeNull();
+      expect(inmate!.pos).toEqual({ x: 2, y: 2 });
+      
+      // Set time to breakfast (7am) - canteen schedule
+      game.state.hour = 7;
+      game.state.minute = 0;
+      
+      // Update game - inmate should start pathfinding
+      updateGame(game, 1);
+      
+      // Inmate should have a path or be moving
+      expect(inmate!.path.length > 0 || inmate!.pos.x > 2).toBe(true);
+    });
+
+    it('inmates satisfy needs when in correct zone', () => {
+      const game = createGame();
+      startGame(game);
+      
+      // Build canteen
+      setTile(game.state.grid, 5, 5, TileType.FLOOR);
+      
+      // Create canteen zone
+      game.state.zones.push({
+        id: 'canteen_1',
+        type: ZoneType.CANTEEN,
+        tiles: [{ x: 5, y: 5 }],
+        valid: true
+      });
+      
+      // Also need a cell for admitting
+      game.state.zones.push({
+        id: 'cell_1',
+        type: ZoneType.CELL,
+        tiles: [{ x: 5, y: 5 }], // Same tile for simplicity
+        valid: true
+      });
+      
+      // Add inmate at canteen location
+      const inmate = admitInmate(game, 'John', SecurityLevel.MIN, 30);
+      expect(inmate).not.toBeNull();
+      
+      // Lower food need
+      inmate!.needs.food = 50;
+      
+      // Set time to breakfast (7am)
+      game.state.hour = 7;
+      game.state.minute = 0;
+      
+      // Update game - food need should increase
+      const initialFood = inmate!.needs.food;
+      updateGame(game, 1);
+      
+      // Food should increase (10 per second) minus decay
+      expect(inmate!.needs.food).toBeGreaterThan(initialFood);
+    });
+  });
 });

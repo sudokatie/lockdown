@@ -49,8 +49,21 @@ export function checkForFight(inmates: Inmate[]): SecurityEvent | null {
     for (let j = i + 1; j < frustrated.length; j++) {
       const dist = getDistance(frustrated[i].pos, frustrated[j].pos);
       if (dist <= FIGHT_RANGE) {
-        // Start a fight between these two
-        return startFight([frustrated[i], frustrated[j]]);
+        // Start a fight between these two, plus any nearby frustrated inmates
+        const fightPos = frustrated[i].pos;
+        const participants = [frustrated[i], frustrated[j]];
+        
+        // Check for other nearby frustrated inmates who join the fight
+        for (let k = 0; k < frustrated.length; k++) {
+          if (k !== i && k !== j) {
+            const distToFight = getDistance(frustrated[k].pos, fightPos);
+            if (distToFight <= FIGHT_RANGE) {
+              participants.push(frustrated[k]);
+            }
+          }
+        }
+        
+        return startFight(participants);
       }
     }
   }

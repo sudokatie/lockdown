@@ -11,6 +11,7 @@ import {
   Tile,
   Staff,
   Inmate,
+  InmateState,
   SecurityEvent,
   ScheduleBlock,
   Activity
@@ -19,7 +20,16 @@ import { createGrid, getTile, setTile, setObject, isInBounds } from './Grid';
 import { createZone, placeZone, validateZone } from './Zone';
 import { createDefaultSchedule, getCurrentBlock, advanceTime } from './Schedule';
 import { createStaff, updateStaff, resetStaffIdCounter } from './Staff';
-import { createInmate, updateNeeds, updateFrustration, resetInmateIdCounter } from './Inmate';
+import { 
+  createInmate, 
+  updateNeeds, 
+  updateFrustration, 
+  resetInmateIdCounter,
+  satisfyNeed,
+  updateInmatePosition,
+  setInmatePath,
+  isInLockdown
+} from './Inmate';
 import { processSecurityEvents } from './Security';
 import { createEconomy, spendMoney, canAfford, processDailyEconomy, isBankrupt, Economy } from './Economy';
 import {
@@ -152,6 +162,59 @@ export function updateTime(game: Game, dt: number): void {
   }
 }
 
+// Map activity to inmate state
+function activityToState(activity: Activity): InmateState {
+  switch (activity) {
+    case Activity.SLEEP: return InmateState.SLEEPING;
+    case Activity.EAT: return InmateState.EATING;
+    case Activity.SHOWER: return InmateState.SHOWERING;
+    case Activity.YARD: return InmateState.YARD;
+    case Activity.FREE: return InmateState.FREE;
+    case Activity.WORK: return InmateState.YARD; // Work counts as yard for MVP
+    case Activity.WAKE: return InmateState.MOVING;
+    default: return InmateState.SLEEPING;
+  }
+}
+
+// Map activity to the need it satisfies
+function activityToNeed(activity: Activity): keyof import('./types').Needs | null {
+  switch (activity) {
+    case Activity.SLEEP: return 'sleep';
+    case Activity.EAT: return 'food';
+    case Activity.SHOWER: return 'hygiene';
+    case Activity.YARD: return 'exercise';
+    case Activity.FREE: return 'freedom';
+    case Activity.WORK: return 'exercise';
+    default: return null;
+  }
+}
+
+// Check if inmate is in any tile of a zone
+function isInmateInZone(inmate: Inmate, zones: import('./types').Zone[], zoneType: ZoneType): boolean {
+  const matchingZones = zones.filter(z => z.type === zoneType);
+  for (const zone of matchingZones) {
+    for (const tile of zone.tiles) {
+      if (inmate.pos.x === tile.x && inmate.pos.y === tile.y) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Find a random tile in a zone of given type
+function findZoneTile(zones: import('./types').Zone[], zoneType: ZoneType): Position | null {
+  const matchingZones = zones.filter(z => z.type === zoneType && z.valid);
+  if (matchingZones.length === 0) return null;
+  
+  // Pick a random zone
+  const zone = matchingZones[Math.floor(Math.random() * matchingZones.length)];
+  if (zone.tiles.length === 0) return null;
+  
+  // Pick a random tile in that zone
+  return zone.tiles[Math.floor(Math.random() * zone.tiles.length)];
+}
+
 // Main update loop
 export function updateGame(game: Game, dt: number): void {
   if (game.state.paused || game.state.screen !== GameScreen.PLAYING) {
@@ -175,8 +238,55 @@ export function updateGame(game: Game, dt: number): void {
     updateStaff(staff, game.state.grid, game.state.hour, game.state.events, kitchenPos);
   }
   
-  // Update all inmates
+  // Update all inmates - follow schedule
   for (const inmate of game.state.inmates) {
+    // Skip inmates in lockdown
+    if (isInLockdown(inmate)) {
+      updateNeeds(inmate, dt);
+      updateFrustration(inmate);
+      continue;
+    }
+    
+    // If we have a schedule block, follow it
+    if (block) {
+      const targetZoneType = block.targetZone;
+      const targetState = activityToState(block.activity);
+      const needToSatisfy = activityToNeed(block.activity);
+      
+      // Check if inmate is already in the target zone
+      if (isInmateInZone(inmate, game.state.zones, targetZoneType)) {
+        // In correct zone - update state and satisfy need
+        inmate.state = targetState;
+        
+        if (needToSatisfy) {
+          // Satisfy need while in correct zone (10 per second)
+          satisfyNeed(inmate, needToSatisfy, 10 * dt);
+        }
+        
+        // Clear path since we're at destination
+        inmate.path = [];
+      } else {
+        // Not in correct zone - pathfind there
+        if (inmate.path.length === 0) {
+          // Need a new path
+          const targetTile = findZoneTile(game.state.zones, targetZoneType);
+          if (targetTile) {
+            const path = findPath(game.state.grid, inmate.pos, targetTile, false);
+            if (path.length > 0) {
+              setInmatePath(inmate, path);
+              inmate.state = InmateState.MOVING;
+            }
+          }
+        }
+        
+        // Move along path
+        if (inmate.path.length > 1) {
+          updateInmatePosition(inmate);
+        }
+      }
+    }
+    
+    // Update needs (decay) and frustration
     updateNeeds(inmate, dt);
     updateFrustration(inmate);
   }
