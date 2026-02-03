@@ -4,24 +4,27 @@ import { useState } from 'react';
 import BuildPanel from './BuildPanel';
 import ZonePanel from './ZonePanel';
 import StaffPanel from './StaffPanel';
-import { BuildTool, TileType, ObjectType, ZoneType, StaffType } from '../game/types';
+import InmatePanel from './InmatePanel';
+import { BuildTool, TileType, ObjectType, ZoneType, StaffType, SecurityLevel } from '../game/types';
 
-type TabType = 'build' | 'zones' | 'staff';
+type TabType = 'build' | 'zones' | 'staff' | 'inmates';
 
 interface SidePanelProps {
   money: number;
   onSelectTool: (tool: BuildTool, tileType?: TileType, objectType?: ObjectType) => void;
   onSelectZone: (zone: ZoneType) => void;
   onHireStaff: (type: StaffType) => void;
+  onAdmitInmate: (name: string, security: SecurityLevel, sentence: number) => void;
 }
 
-export default function SidePanel({ money, onSelectTool, onSelectZone, onHireStaff }: SidePanelProps) {
+export default function SidePanel({ money, onSelectTool, onSelectZone, onHireStaff, onAdmitInmate }: SidePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('build');
 
   const tabs: { id: TabType; label: string }[] = [
     { id: 'build', label: 'Build' },
     { id: 'zones', label: 'Zones' },
-    { id: 'staff', label: 'Staff' }
+    { id: 'staff', label: 'Staff' },
+    { id: 'inmates', label: 'Inmates' }
   ];
 
   return (
@@ -53,6 +56,9 @@ export default function SidePanel({ money, onSelectTool, onSelectZone, onHireSta
         )}
         {activeTab === 'staff' && (
           <StaffPanel money={money} onHireStaff={onHireStaff} />
+        )}
+        {activeTab === 'inmates' && (
+          <InmatePanel money={money} onAdmitInmate={onAdmitInmate} />
         )}
       </div>
     </div>

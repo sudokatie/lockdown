@@ -106,6 +106,11 @@ npm run build
 
 ## Changelog
 
+### v0.1.2
+- Add: Inmate admission UI (Inmates tab in side panel)
+- Add: Zone placement with drag-to-select UI
+- Add: Visual preview while dragging zones
+
 ### v0.1.1
 - Fix: Inmates now follow daily schedule (pathfind to zones, satisfy needs)
 - Fix: Nearby frustrated inmates join existing fights

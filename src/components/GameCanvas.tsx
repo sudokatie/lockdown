@@ -10,6 +10,8 @@ import {
   buildTile,
   placeObjectAt,
   hireStaff,
+  admitInmate,
+  placeZoneAt,
   setSelectedTool,
   setSelectedObject,
   setSelectedZone,
@@ -24,8 +26,8 @@ import {
   isGameOver
 } from '../game/Game';
 import { renderGame, renderPausedOverlay, renderUI } from '../game/Renderer';
-import { GameScreen, BuildTool, TileType, ObjectType, ZoneType, StaffType } from '../game/types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, TILE_SIZE } from '../game/constants';
+import { GameScreen, BuildTool, TileType, ObjectType, ZoneType, StaffType, SecurityLevel, Position } from '../game/types';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, TILE_SIZE, GRID_WIDTH, GRID_HEIGHT } from '../game/constants';
 
 import TitleScreen from './TitleScreen';
 import StatusBar from './StatusBar';
@@ -53,6 +55,9 @@ export default function GameCanvas() {
   const [currentTileType, setCurrentTileType] = useState<TileType | null>(null);
   const [currentObjectType, setCurrentObjectType] = useState<ObjectType | null>(null);
   const [pendingStaffType, setPendingStaffType] = useState<StaffType | null>(null);
+  const [pendingZoneType, setPendingZoneType] = useState<ZoneType | null>(null);
+  const [zoneDragStart, setZoneDragStart] = useState<Position | null>(null);
+  const [zoneDragEnd, setZoneDragEnd] = useState<Position | null>(null);
   
   const [mouseX, setMouseX] = useState(0);
   const [mouseY, setMouseY] = useState(0);
@@ -129,9 +134,33 @@ export default function GameCanvas() {
       renderUI(ctx, mouseX, mouseY, true, currentTileType);
     }
     
+    // Render zone preview during drag
+    if (zoneDragStart && zoneDragEnd) {
+      const minX = Math.min(zoneDragStart.x, zoneDragEnd.x);
+      const maxX = Math.max(zoneDragStart.x, zoneDragEnd.x);
+      const minY = Math.min(zoneDragStart.y, zoneDragEnd.y);
+      const maxY = Math.max(zoneDragStart.y, zoneDragEnd.y);
+      
+      ctx.fillStyle = 'rgba(128, 0, 255, 0.3)';
+      ctx.fillRect(
+        minX * TILE_SIZE, 
+        minY * TILE_SIZE, 
+        (maxX - minX + 1) * TILE_SIZE, 
+        (maxY - minY + 1) * TILE_SIZE
+      );
+      ctx.strokeStyle = '#8800ff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
+        minX * TILE_SIZE, 
+        minY * TILE_SIZE, 
+        (maxX - minX + 1) * TILE_SIZE, 
+        (maxY - minY + 1) * TILE_SIZE
+      );
+    }
+    
     // Continue loop
     animationRef.current = requestAnimationFrame(gameLoop);
-  }, [screen, currentTool, currentTileType, mouseX, mouseY, syncState]);
+  }, [screen, currentTool, currentTileType, mouseX, mouseY, syncState, zoneDragStart, zoneDragEnd]);
 
   // Start/stop game loop
   useEffect(() => {
@@ -152,6 +181,19 @@ export default function GameCanvas() {
     initGame();
   }, [initGame]);
 
+  // Get grid coordinates from mouse event
+  const getGridCoords = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Position | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+    const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+    
+    if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) return null;
+    return { x, y };
+  }, []);
+
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -160,23 +202,66 @@ export default function GameCanvas() {
     const rect = canvas.getBoundingClientRect();
     setMouseX(e.clientX - rect.left);
     setMouseY(e.clientY - rect.top);
-  }, []);
+    
+    // Update zone drag end if dragging
+    if (zoneDragStart !== null) {
+      const pos = getGridCoords(e);
+      if (pos) {
+        setZoneDragEnd(pos);
+      }
+    }
+  }, [zoneDragStart, getGridCoords]);
 
-  // Handle click
-  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle mouse down (start zone drag)
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (pendingZoneType !== null) {
+      const pos = getGridCoords(e);
+      if (pos) {
+        setZoneDragStart(pos);
+        setZoneDragEnd(pos);
+      }
+    }
+  }, [pendingZoneType, getGridCoords]);
+
+  // Handle mouse up (complete zone drag or regular click)
+  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const game = gameRef.current;
     if (!game) return;
     
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const pos = getGridCoords(e);
+    if (!pos) return;
     
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / TILE_SIZE);
-    const y = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+    // Complete zone placement
+    if (pendingZoneType !== null && zoneDragStart !== null) {
+      const endPos = pos;
+      
+      // Calculate zone rectangle
+      const minX = Math.min(zoneDragStart.x, endPos.x);
+      const maxX = Math.max(zoneDragStart.x, endPos.x);
+      const minY = Math.min(zoneDragStart.y, endPos.y);
+      const maxY = Math.max(zoneDragStart.y, endPos.y);
+      
+      // Create tiles array for zone
+      const tiles: Position[] = [];
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          tiles.push({ x, y });
+        }
+      }
+      
+      // Try to place zone
+      placeZoneAt(game, pendingZoneType, tiles);
+      syncState();
+      
+      // Clear drag state but keep zone type selected for more placements
+      setZoneDragStart(null);
+      setZoneDragEnd(null);
+      return;
+    }
     
     // Handle pending staff placement
     if (pendingStaffType !== null) {
-      hireStaff(game, pendingStaffType, { x, y });
+      hireStaff(game, pendingStaffType, pos);
       setPendingStaffType(null);
       syncState();
       return;
@@ -184,13 +269,13 @@ export default function GameCanvas() {
     
     // Handle build tool
     if (currentTool === BuildTool.WALL && currentTileType) {
-      buildTile(game, x, y, currentTileType);
+      buildTile(game, pos.x, pos.y, currentTileType);
       syncState();
     } else if (currentTool === BuildTool.OBJECT && currentObjectType) {
-      placeObjectAt(game, x, y, currentObjectType);
+      placeObjectAt(game, pos.x, pos.y, currentObjectType);
       syncState();
     }
-  }, [currentTool, currentTileType, currentObjectType, pendingStaffType, syncState]);
+  }, [currentTool, currentTileType, currentObjectType, pendingStaffType, pendingZoneType, zoneDragStart, syncState, getGridCoords]);
 
   // Handle keyboard
   useEffect(() => {
@@ -206,6 +291,9 @@ export default function GameCanvas() {
         setCurrentTileType(null);
         setCurrentObjectType(null);
         setPendingStaffType(null);
+        setPendingZoneType(null);
+        setZoneDragStart(null);
+        setZoneDragEnd(null);
       }
     };
     
@@ -219,18 +307,36 @@ export default function GameCanvas() {
     setCurrentTileType(tileType || null);
     setCurrentObjectType(objectType || null);
     setPendingStaffType(null);
+    setPendingZoneType(null);
+    setZoneDragStart(null);
+    setZoneDragEnd(null);
   }, []);
 
   const handleSelectZone = useCallback((zone: ZoneType) => {
-    // Zone placement would need more complex UI (drag to select area)
-    // For MVP, just log it
-    console.log('Zone selected:', zone);
+    if (zone === ZoneType.NONE) {
+      setPendingZoneType(null);
+      setZoneDragStart(null);
+      setZoneDragEnd(null);
+    } else {
+      setPendingZoneType(zone);
+      setCurrentTool(BuildTool.NONE);
+      setPendingStaffType(null);
+    }
   }, []);
 
   const handleHireStaff = useCallback((type: StaffType) => {
     setPendingStaffType(type);
     setCurrentTool(BuildTool.NONE);
+    setPendingZoneType(null);
   }, []);
+
+  const handleAdmitInmate = useCallback((name: string, security: SecurityLevel, sentence: number) => {
+    const game = gameRef.current;
+    if (!game) return;
+    
+    admitInmate(game, name, security, sentence);
+    syncState();
+  }, [syncState]);
 
   // Render based on screen
   if (screen === GameScreen.TITLE) {
@@ -268,7 +374,8 @@ export default function GameCanvas() {
               width={CANVAS_WIDTH}
               height={CANVAS_HEIGHT}
               onMouseMove={handleMouseMove}
-              onClick={handleClick}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
               className="cursor-crosshair"
             />
           </div>
@@ -280,12 +387,21 @@ export default function GameCanvas() {
           onSelectTool={handleSelectTool}
           onSelectZone={handleSelectZone}
           onHireStaff={handleHireStaff}
+          onAdmitInmate={handleAdmitInmate}
         />
       </div>
       
       {pendingStaffType && (
         <div className="absolute bottom-36 left-4 bg-blue-600 text-white px-4 py-2 rounded">
           Click on map to place {pendingStaffType}
+        </div>
+      )}
+      
+      {pendingZoneType && (
+        <div className="absolute bottom-36 left-4 bg-purple-600 text-white px-4 py-2 rounded">
+          {zoneDragStart 
+            ? `Drag to define ${pendingZoneType} zone (release to place)` 
+            : `Click and drag to create ${pendingZoneType} zone`}
         </div>
       )}
     </div>
