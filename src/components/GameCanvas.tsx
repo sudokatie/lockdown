@@ -277,29 +277,63 @@ export default function GameCanvas() {
     }
   }, [currentTool, currentTileType, currentObjectType, pendingStaffType, pendingZoneType, zoneDragStart, syncState, getGridCoords]);
 
+  // Cancel all selections
+  const cancelSelection = useCallback(() => {
+    setCurrentTool(BuildTool.NONE);
+    setCurrentTileType(null);
+    setCurrentObjectType(null);
+    setPendingStaffType(null);
+    setPendingZoneType(null);
+    setZoneDragStart(null);
+    setZoneDragEnd(null);
+  }, []);
+
+  // Handle right-click to cancel
+  const handleContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    cancelSelection();
+  }, [cancelSelection]);
+
   // Handle keyboard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const game = gameRef.current;
       if (!game || screen !== GameScreen.PLAYING) return;
       
-      if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
-        togglePause(game);
-        syncState();
-      } else if (e.key === 'Escape') {
-        setCurrentTool(BuildTool.NONE);
-        setCurrentTileType(null);
+      // Helper to select a build tool
+      const selectTool = (tool: BuildTool, tileType?: TileType) => {
+        setCurrentTool(tool);
+        setCurrentTileType(tileType || null);
         setCurrentObjectType(null);
         setPendingStaffType(null);
         setPendingZoneType(null);
         setZoneDragStart(null);
         setZoneDragEnd(null);
+      };
+      
+      if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
+        togglePause(game);
+        syncState();
+      } else if (e.key === 'Escape') {
+        cancelSelection();
+      } else if (e.key === '1') {
+        selectTool(BuildTool.WALL, TileType.WALL);
+      } else if (e.key === '2') {
+        selectTool(BuildTool.WALL, TileType.FLOOR);
+      } else if (e.key === '3') {
+        selectTool(BuildTool.WALL, TileType.DOOR);
+      } else if (e.key === '4') {
+        selectTool(BuildTool.WALL, TileType.FENCE);
+      } else if (e.key === '5') {
+        selectTool(BuildTool.WALL, TileType.GRASS);
+      } else if (e.key === '6') {
+        cancelSelection();
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, syncState]);
+  }, [screen, syncState, cancelSelection]);
 
   // Tool selection handlers
   const handleSelectTool = useCallback((tool: BuildTool, tileType?: TileType, objectType?: ObjectType) => {
@@ -376,6 +410,7 @@ export default function GameCanvas() {
               onMouseMove={handleMouseMove}
               onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
+              onContextMenu={handleContextMenu}
               className="cursor-crosshair"
             />
           </div>

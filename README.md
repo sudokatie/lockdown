@@ -14,8 +14,15 @@ You are the warden of a new prison. Your job is to:
 ## Controls
 
 - **Left Click** - Build/place selected item
+- **Right Click** - Cancel current tool
 - **Space/P** - Pause/unpause game
 - **Escape** - Cancel current tool
+- **1** - Select Wall
+- **2** - Select Floor
+- **3** - Select Door
+- **4** - Select Fence
+- **5** - Select Grass
+- **6** - Cancel selection
 
 ## Building
 
@@ -105,6 +112,10 @@ npm run build
 - HTML5 Canvas for rendering
 
 ## Changelog
+
+### v0.1.3
+- Add: Keyboard shortcuts 1-6 for build tools
+- Add: Right-click to cancel current tool
 
 ### v0.1.2
 - Add: Inmate admission UI (Inmates tab in side panel)
