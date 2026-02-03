@@ -54,7 +54,7 @@ Create zones by enclosing areas with walls/doors and placing required objects:
 - **Kitchen** - Cooker + Fridge + Sink (3x3 minimum)
 - **Shower** - Showerhead + Drain (3x3 minimum)
 - **Yard** - Outdoor exercise area (5x5 minimum)
-- **Common Room** - TV (4x4 minimum)
+- **Common Room** - TV + Bench (4x4 minimum)
 
 ## Staff
 
