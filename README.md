@@ -13,7 +13,7 @@ You are the warden of a new prison. Your job is to:
 
 ## Controls
 
-- **Left Click** - Build/place selected item
+- **Left Click + Drag** - Build walls/floors in an area
 - **Right Click** - Cancel current tool
 - **Space/P** - Pause/unpause game
 - **Escape** - Cancel current tool
@@ -112,6 +112,10 @@ npm run build
 - HTML5 Canvas for rendering
 
 ## Changelog
+
+### v0.1.4
+- Add: Drag-to-build for tiles (walls, floors, doors, etc.)
+- Visual preview during tile drag
 
 ### v0.1.3
 - Add: Keyboard shortcuts 1-6 for build tools

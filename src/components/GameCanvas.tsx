@@ -58,6 +58,8 @@ export default function GameCanvas() {
   const [pendingZoneType, setPendingZoneType] = useState<ZoneType | null>(null);
   const [zoneDragStart, setZoneDragStart] = useState<Position | null>(null);
   const [zoneDragEnd, setZoneDragEnd] = useState<Position | null>(null);
+  const [tileDragStart, setTileDragStart] = useState<Position | null>(null);
+  const [tileDragEnd, setTileDragEnd] = useState<Position | null>(null);
   
   const [mouseX, setMouseX] = useState(0);
   const [mouseY, setMouseY] = useState(0);
@@ -158,9 +160,33 @@ export default function GameCanvas() {
       );
     }
     
+    // Render tile drag preview
+    if (tileDragStart && tileDragEnd && currentTileType) {
+      const minX = Math.min(tileDragStart.x, tileDragEnd.x);
+      const maxX = Math.max(tileDragStart.x, tileDragEnd.x);
+      const minY = Math.min(tileDragStart.y, tileDragEnd.y);
+      const maxY = Math.max(tileDragStart.y, tileDragEnd.y);
+      
+      ctx.fillStyle = 'rgba(255, 200, 0, 0.3)';
+      ctx.fillRect(
+        minX * TILE_SIZE, 
+        minY * TILE_SIZE, 
+        (maxX - minX + 1) * TILE_SIZE, 
+        (maxY - minY + 1) * TILE_SIZE
+      );
+      ctx.strokeStyle = '#ffcc00';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
+        minX * TILE_SIZE, 
+        minY * TILE_SIZE, 
+        (maxX - minX + 1) * TILE_SIZE, 
+        (maxY - minY + 1) * TILE_SIZE
+      );
+    }
+    
     // Continue loop
     animationRef.current = requestAnimationFrame(gameLoop);
-  }, [screen, currentTool, currentTileType, mouseX, mouseY, syncState, zoneDragStart, zoneDragEnd]);
+  }, [screen, currentTool, currentTileType, mouseX, mouseY, syncState, zoneDragStart, zoneDragEnd, tileDragStart, tileDragEnd]);
 
   // Start/stop game loop
   useEffect(() => {
@@ -210,18 +236,33 @@ export default function GameCanvas() {
         setZoneDragEnd(pos);
       }
     }
-  }, [zoneDragStart, getGridCoords]);
-
-  // Handle mouse down (start zone drag)
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (pendingZoneType !== null) {
+    
+    // Update tile drag end if dragging
+    if (tileDragStart !== null) {
       const pos = getGridCoords(e);
       if (pos) {
-        setZoneDragStart(pos);
-        setZoneDragEnd(pos);
+        setTileDragEnd(pos);
       }
     }
-  }, [pendingZoneType, getGridCoords]);
+  }, [zoneDragStart, tileDragStart, getGridCoords]);
+
+  // Handle mouse down (start zone or tile drag)
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pos = getGridCoords(e);
+    if (!pos) return;
+    
+    // Start zone drag
+    if (pendingZoneType !== null) {
+      setZoneDragStart(pos);
+      setZoneDragEnd(pos);
+    }
+    
+    // Start tile drag for build tools
+    if (currentTool === BuildTool.WALL && currentTileType) {
+      setTileDragStart(pos);
+      setTileDragEnd(pos);
+    }
+  }, [pendingZoneType, currentTool, currentTileType, getGridCoords]);
 
   // Handle mouse up (complete zone drag or regular click)
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -267,15 +308,33 @@ export default function GameCanvas() {
       return;
     }
     
-    // Handle build tool
-    if (currentTool === BuildTool.WALL && currentTileType) {
-      buildTile(game, pos.x, pos.y, currentTileType);
+    // Complete tile drag build
+    if (currentTool === BuildTool.WALL && currentTileType && tileDragStart !== null) {
+      const minX = Math.min(tileDragStart.x, pos.x);
+      const maxX = Math.max(tileDragStart.x, pos.x);
+      const minY = Math.min(tileDragStart.y, pos.y);
+      const maxY = Math.max(tileDragStart.y, pos.y);
+      
+      // Build all tiles in the rectangle
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          buildTile(game, x, y, currentTileType);
+        }
+      }
       syncState();
-    } else if (currentTool === BuildTool.OBJECT && currentObjectType) {
+      
+      // Clear drag state but keep tool selected
+      setTileDragStart(null);
+      setTileDragEnd(null);
+      return;
+    }
+    
+    // Handle single-click object placement
+    if (currentTool === BuildTool.OBJECT && currentObjectType) {
       placeObjectAt(game, pos.x, pos.y, currentObjectType);
       syncState();
     }
-  }, [currentTool, currentTileType, currentObjectType, pendingStaffType, pendingZoneType, zoneDragStart, syncState, getGridCoords]);
+  }, [currentTool, currentTileType, currentObjectType, pendingStaffType, pendingZoneType, zoneDragStart, tileDragStart, syncState, getGridCoords]);
 
   // Cancel all selections
   const cancelSelection = useCallback(() => {
@@ -286,6 +345,8 @@ export default function GameCanvas() {
     setPendingZoneType(null);
     setZoneDragStart(null);
     setZoneDragEnd(null);
+    setTileDragStart(null);
+    setTileDragEnd(null);
   }, []);
 
   // Handle right-click to cancel
@@ -309,6 +370,8 @@ export default function GameCanvas() {
         setPendingZoneType(null);
         setZoneDragStart(null);
         setZoneDragEnd(null);
+        setTileDragStart(null);
+        setTileDragEnd(null);
       };
       
       if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
