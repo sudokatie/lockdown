@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lockdown
 
-## Getting Started
+A prison management simulator inspired by Prison Architect. Build and manage your own prison - keep inmates happy or face riots!
 
-First, run the development server:
+## Gameplay
+
+You are the warden of a new prison. Your job is to:
+
+- **Build facilities** - Construct cells, canteens, kitchens, showers, and yards
+- **Hire staff** - Guards keep order, cooks prepare meals, janitors clean
+- **Manage inmates** - Keep their needs met to prevent frustration and fights
+- **Balance budget** - Earn money from inmate grants, pay staff wages and food costs
+
+## Controls
+
+- **Left Click** - Build/place selected item
+- **Space/P** - Pause/unpause game
+- **Escape** - Cancel current tool
+
+## Building
+
+### Tiles
+- **Floor** ($10) - Basic walkable surface
+- **Wall** ($50) - Blocks movement, creates rooms
+- **Door** ($100) - Entry points for rooms
+- **Grass** ($5) - Outdoor areas
+- **Fence** ($25) - Outdoor barriers
+
+### Objects
+- **Bed** ($100) - Required for cells
+- **Toilet** ($75) - Required for cells
+- **Table** ($50) - Required for canteen
+- **Bench** ($25) - Required for canteen
+- **Cooker** ($300) - Required for kitchen
+- **Fridge** ($200) - Required for kitchen
+- **Sink** ($100) - Required for kitchen
+- **Showerhead** ($150) - Required for shower
+- **Drain** ($50) - Required for shower
+- **TV** ($200) - Required for common room
+
+## Zones
+
+Create zones by enclosing areas with walls/doors and placing required objects:
+
+- **Cell** - Bed + Toilet (2x3 minimum)
+- **Canteen** - Table + Bench (4x4 minimum)
+- **Kitchen** - Cooker + Fridge + Sink (3x3 minimum)
+- **Shower** - Showerhead + Drain (3x3 minimum)
+- **Yard** - Outdoor exercise area (5x5 minimum)
+- **Common Room** - TV (4x4 minimum)
+
+## Staff
+
+- **Guard** ($100/day) - Patrols and responds to fights
+- **Cook** ($75/day) - Prepares meals during meal times (7am, 12pm, 5pm)
+- **Janitor** ($50/day) - Cleans facilities
+
+## Economy
+
+- **Income**: $50 per inmate per day
+- **Expenses**: Staff wages + $5 food per inmate per day
+- **Game Over**: Debt exceeds $10,000
+
+## Inmate Needs
+
+Inmates have needs that decay over time:
+- **Food** - Satisfied by eating in canteen
+- **Sleep** - Satisfied by sleeping in cell
+- **Hygiene** - Satisfied by showering
+- **Exercise** - Satisfied by time in yard
+- **Freedom** - Satisfied by free time in common room
+
+When needs get too low, inmates become frustrated. Two frustrated inmates near each other will fight!
+
+## Tips
+
+1. Start by building a basic cell block with a few cells
+2. Hire a guard before admitting inmates
+3. Build a kitchen and canteen before meal times
+4. Keep at least one guard per 5-10 inmates
+5. Balance expansion with your budget
+
+## Development
 
 ```bash
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Next.js 14
+- TypeScript
+- Tailwind CSS
+- Jest for testing
+- HTML5 Canvas for rendering
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## License
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
