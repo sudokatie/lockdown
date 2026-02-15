@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { 
   Game, 
   createGame, 
@@ -34,6 +34,7 @@ import StatusBar from './StatusBar';
 import SidePanel from './SidePanel';
 import MessageLog from './MessageLog';
 import GameOver from './GameOver';
+import { soundSystem } from '../game/Sound';
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,6 +64,14 @@ export default function GameCanvas() {
   
   const [mouseX, setMouseX] = useState(0);
   const [mouseY, setMouseY] = useState(0);
+  
+  // Track previous state for sound triggers
+  const prevStateRef = useRef<{
+    staffCount: number;
+    inmateCount: number;
+    hour: number;
+    messages: string[];
+  } | null>(null);
 
   // Initialize game
   const initGame = useCallback(() => {
@@ -207,6 +216,58 @@ export default function GameCanvas() {
     initGame();
   }, [initGame]);
 
+  // Sound effects based on state changes
+  useEffect(() => {
+    const prev = prevStateRef.current;
+    
+    if (prev && screen === GameScreen.PLAYING) {
+      // Staff hired
+      if (staffCount > prev.staffCount) {
+        soundSystem.play('staffHired');
+      }
+      
+      // New inmate admitted
+      if (inmateCount > prev.inmateCount) {
+        soundSystem.play('inmateAdmit');
+      }
+      
+      // Time of day transitions
+      if (hour !== prev.hour) {
+        // Day starts at 6 AM
+        if (hour === 6 && prev.hour === 5) {
+          soundSystem.play('dayStart');
+        }
+        // Night starts at 22 (10 PM)
+        if (hour === 22 && prev.hour === 21) {
+          soundSystem.play('nightStart');
+        }
+        // Meal times: 7 AM, 12 PM, 6 PM
+        if ((hour === 7 || hour === 12 || hour === 18) && 
+            (prev.hour === 6 || prev.hour === 11 || prev.hour === 17)) {
+          soundSystem.play('mealBell');
+        }
+      }
+      
+      // Check for fight or lockdown messages
+      const newMessages = messages.filter(m => !prev.messages.includes(m));
+      for (const msg of newMessages) {
+        if (msg.toLowerCase().includes('fight')) {
+          soundSystem.play('fightAlert');
+        } else if (msg.toLowerCase().includes('lockdown')) {
+          soundSystem.play('lockdownSiren');
+        }
+      }
+    }
+    
+    // Update previous state
+    prevStateRef.current = {
+      staffCount,
+      inmateCount,
+      hour,
+      messages: [...messages],
+    };
+  }, [screen, staffCount, inmateCount, hour, messages]);
+
   // Get grid coordinates from mouse event
   const getGridCoords = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Position | null => {
     const canvas = canvasRef.current;
@@ -292,6 +353,7 @@ export default function GameCanvas() {
       
       // Try to place zone
       placeZoneAt(game, pendingZoneType, tiles);
+      soundSystem.play('zoneBuilt');
       syncState();
       
       // Clear drag state but keep zone type selected for more placements
