@@ -11,6 +11,7 @@ You are the warden of a new prison. Your job is to:
 - **Manage inmates** - Keep their needs met to prevent frustration and fights
 - **Balance budget** - Earn money from inmate grants, pay staff wages and food costs
 - **Audio cues** - Sound effects for events, alarms, and daily routines
+- **Leaderboard** - Track your best prisons (inmates managed, days operating)
 
 ## Controls
 
