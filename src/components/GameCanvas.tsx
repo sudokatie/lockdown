@@ -281,6 +281,19 @@ export default function GameCanvas() {
     return { x, y };
   }, []);
 
+  // Get grid coordinates from touch event
+  const getGridCoordsFromTouch = useCallback((touch: React.Touch): Position | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((touch.clientX - rect.left) / TILE_SIZE);
+    const y = Math.floor((touch.clientY - rect.top) / TILE_SIZE);
+    
+    if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) return null;
+    return { x, y };
+  }, []);
+
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -417,6 +430,123 @@ export default function GameCanvas() {
     cancelSelection();
   }, [cancelSelection]);
 
+  // Touch handlers (mirror mouse handlers for mobile support)
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    
+    const pos = getGridCoordsFromTouch(e.touches[0]);
+    if (!pos) return;
+    
+    // Start zone drag
+    if (pendingZoneType !== null) {
+      setZoneDragStart(pos);
+      setZoneDragEnd(pos);
+    }
+    
+    // Start tile drag for build tools
+    if (currentTool === BuildTool.WALL && currentTileType) {
+      setTileDragStart(pos);
+      setTileDragEnd(pos);
+    }
+  }, [pendingZoneType, currentTool, currentTileType, getGridCoordsFromTouch]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    setMouseX(touch.clientX - rect.left);
+    setMouseY(touch.clientY - rect.top);
+    
+    // Update zone drag end if dragging
+    if (zoneDragStart !== null) {
+      const pos = getGridCoordsFromTouch(touch);
+      if (pos) {
+        setZoneDragEnd(pos);
+      }
+    }
+    
+    // Update tile drag end if dragging
+    if (tileDragStart !== null) {
+      const pos = getGridCoordsFromTouch(touch);
+      if (pos) {
+        setTileDragEnd(pos);
+      }
+    }
+  }, [zoneDragStart, tileDragStart, getGridCoordsFromTouch]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.changedTouches.length !== 1) return;
+    e.preventDefault();
+    
+    const pos = getGridCoordsFromTouch(e.changedTouches[0]);
+    if (!pos) return;
+    
+    const game = gameRef.current;
+    if (!game) return;
+    
+    // Complete zone drag
+    if (pendingZoneType !== null && zoneDragStart !== null) {
+      const minX = Math.min(zoneDragStart.x, pos.x);
+      const maxX = Math.max(zoneDragStart.x, pos.x);
+      const minY = Math.min(zoneDragStart.y, pos.y);
+      const maxY = Math.max(zoneDragStart.y, pos.y);
+      
+      const tiles: Position[] = [];
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          tiles.push({ x, y });
+        }
+      }
+      
+      placeZoneAt(game, pendingZoneType, tiles);
+      soundSystem.play('zoneBuilt');
+      syncState();
+      
+      setZoneDragStart(null);
+      setZoneDragEnd(null);
+      return;
+    }
+    
+    // Handle pending staff placement
+    if (pendingStaffType !== null) {
+      hireStaff(game, pendingStaffType, pos);
+      setPendingStaffType(null);
+      syncState();
+      return;
+    }
+    
+    // Complete tile drag build
+    if (currentTool === BuildTool.WALL && currentTileType && tileDragStart !== null) {
+      const minX = Math.min(tileDragStart.x, pos.x);
+      const maxX = Math.max(tileDragStart.x, pos.x);
+      const minY = Math.min(tileDragStart.y, pos.y);
+      const maxY = Math.max(tileDragStart.y, pos.y);
+      
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          buildTile(game, x, y, currentTileType);
+        }
+      }
+      syncState();
+      
+      setTileDragStart(null);
+      setTileDragEnd(null);
+      return;
+    }
+    
+    // Handle single-click object placement
+    if (currentTool === BuildTool.OBJECT && currentObjectType) {
+      placeObjectAt(game, pos.x, pos.y, currentObjectType);
+      syncState();
+    }
+  }, [currentTool, currentTileType, currentObjectType, pendingStaffType, pendingZoneType, zoneDragStart, tileDragStart, syncState, getGridCoordsFromTouch]);
+
   // Handle keyboard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -536,6 +666,9 @@ export default function GameCanvas() {
               onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
               onContextMenu={handleContextMenu}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
               className="cursor-crosshair"
             />
           </div>
