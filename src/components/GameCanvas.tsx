@@ -35,6 +35,7 @@ import SidePanel from './SidePanel';
 import MessageLog from './MessageLog';
 import GameOver from './GameOver';
 import { soundSystem } from '../game/Sound';
+import { Music } from '../game/Music';
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -267,6 +268,22 @@ export default function GameCanvas() {
       messages: [...messages],
     };
   }, [screen, staffCount, inmateCount, hour, messages]);
+
+  // Switch music track based on game screen
+  useEffect(() => {
+    switch (screen) {
+      case GameScreen.TITLE:
+      case GameScreen.PAUSED:
+        Music.play('menu');
+        break;
+      case GameScreen.PLAYING:
+        Music.play('gameplay');
+        break;
+      case GameScreen.GAME_OVER:
+        Music.play('gameover');
+        break;
+    }
+  }, [screen]);
 
   // Get grid coordinates from mouse event
   const getGridCoords = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Position | null => {
